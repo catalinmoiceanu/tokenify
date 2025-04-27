@@ -1,4 +1,3 @@
-# file_writer.py
 """
 Contains the FileWriter class responsible for writing processed data
 to a file, stdout, potentially with compression. Adheres to SRP.
@@ -11,16 +10,11 @@ from typing import (
     Optional,
     Dict,
     Any,
-)  # Removed unused Callable, is_compression_available
-
+)
 log = logging.getLogger(__name__)
-
-
-# R0903: Too few public methods is acceptable here.
 # pylint: disable=too-few-public-methods
 class FileWriter:
     """Handles writing data to a destination (file or stdout), with optional compression."""
-
     def __init__(
         self,
         compress: bool = False,
@@ -29,12 +23,10 @@ class FileWriter:
     ):
         """
         Initializes the FileWriter.
-
         Args:
             compress: Whether to compress the output.
             compression_algo: The name of the compression algorithm (e.g., 'gzip').
             compression_settings: Dictionary containing 'opener' and 'extension'.
-
         Raises:
             ValueError: If compression is requested but algo/settings are invalid/missing.
         """
@@ -43,14 +35,12 @@ class FileWriter:
         self.compression_settings = (
             compression_settings if isinstance(compression_settings, dict) else {}
         )
-
         if self.compress:
             if (
                 not self.compression_algo
                 or not self.compression_settings.get("opener")
                 or not self.compression_settings.get("extension")
             ):
-                # Break long line and use lazy formatting potential
                 error_msg = (
                     "Compression requested with algorithm '%s', but it is not "
                     "available or settings ('opener', 'extension') are missing/"
@@ -58,61 +48,49 @@ class FileWriter:
                 )
                 log.error(error_msg, self.compression_algo)
                 raise ValueError(error_msg % self.compression_algo)
-            # Use lazy formatting
             log.debug(
                 "FileWriter initialized for compression with algorithm: %s",
                 self.compression_algo,
             )
         else:
             log.debug("FileWriter initialized without compression.")
-
     def write(self, data: bytes, target_path: Optional[Path]) -> None:
         """
         Writes data to the target path or stdout, handling compression extension.
-
         Args:
             data: The bytes data to write.
             target_path: The Path object for the output file (base path), or None for stdout.
-
         Raises:
             IOError: If writing fails.
             RuntimeError: If compression settings are inconsistent internally.
             Exception: For other unexpected errors.
         """
         effective_target_path = target_path
-
-        # Determine final path including compression extension if needed
         if self.compress and target_path:
             expected_ext = str(self.compression_settings.get("extension", ""))
-            # Ensure expected_ext is not empty before checking endswith
             if expected_ext and not str(target_path).endswith(expected_ext):
                 effective_target_path = target_path.with_suffix(
                     target_path.suffix + expected_ext
                 )
-                # Use lazy formatting
                 log.debug(
                     "Adding compression extension: %s -> %s",
                     target_path,
                     effective_target_path,
                 )
             else:
-                # Use lazy formatting
                 log.debug(
                     "Target path %s already includes compression extension or no extension needed.",
                     target_path,
                 )
-
         try:
             if self.compress:
                 self._write_compressed(data, effective_target_path)
             else:
                 self._write_uncompressed(data, effective_target_path)
         except IOError as e:
-            # Use lazy formatting
             log.error("IOError writing to %s: %s", effective_target_path or "stdout", e)
             raise
         except Exception as e:
-            # Use lazy formatting
             log.error(
                 "Unexpected error during write to %s: %s",
                 effective_target_path or "stdout",
@@ -120,7 +98,6 @@ class FileWriter:
                 exc_info=True,
             )
             raise
-
     def _write_compressed(self, data: bytes, target_path: Optional[Path]) -> None:
         """Handles writing compressed data."""
         opener = self.compression_settings.get("opener")
@@ -128,21 +105,17 @@ class FileWriter:
             raise RuntimeError(
                 f"Compression opener for {self.compression_algo} is invalid."
             )
-
         mode = "wb"
         if target_path:
             target_path.parent.mkdir(parents=True, exist_ok=True)
-            # Use lazy formatting
             log.debug(
                 "Writing compressed data to file: %s using %s",
                 target_path,
                 self.compression_algo,
             )
-            # Type ignore might be needed if 'opener' type hint is complex
             with opener(target_path, mode) as f:  # type: ignore[operator]
                 f.write(data)
         else:
-            # Use lazy formatting
             log.debug(
                 "Writing compressed data to stdout using %s", self.compression_algo
             )
@@ -151,12 +124,10 @@ class FileWriter:
                 f.write(data)
             sys.stdout.buffer.write(buf.getvalue())
             log.debug("Finished writing compressed data to stdout.")
-
     def _write_uncompressed(self, data: bytes, target_path: Optional[Path]) -> None:
         """Handles writing uncompressed data."""
         if target_path:
             target_path.parent.mkdir(parents=True, exist_ok=True)
-            # Use lazy formatting
             log.debug("Writing uncompressed data to file: %s", target_path)
             with open(target_path, "wb") as f:
                 f.write(data)
