@@ -13,26 +13,17 @@ from typing import List, Optional, Tuple, NamedTuple
 from .path_resolver import PathResolver
 from .file_writer import FileWriter
 from .file_processor import FileProcessor
-from .config import (
-    COMPRESSION_ALGORITHMS,
-    DEFAULT_COMPRESSION,
-    is_compression_available,
-    get_compression_settings,
-)
 log = logging.getLogger(__name__)
 class OutputSettings(NamedTuple):
     """Holds settings related to output destination and format."""
     in_place: bool
     output_dir: Optional[Path]
-    compress: bool
-    algo: Optional[str]
     base_common_path: Path
 class CLIRunner:
     """Helper class to manage the execution flow of the CLI."""
     def __init__(self, args: argparse.Namespace):
         self.args = args
         self.output_dir: Optional[Path] = None
-        self.compression_algo: Optional[str] = None
         self.input_files: List[Path] = []
         self.base_common_path: Path = Path(os.getcwd())
         self.success_count = 0
@@ -45,8 +36,6 @@ class CLIRunner:
         self._setup_logging()
         log.debug("Parsed arguments: %s", self.args)
         self.output_dir = self._validate_output_dir()
-        if not self._validate_compression():
-            return False
         if not self._gather_input_files():
             return False
         self._determine_base_path()
@@ -108,23 +97,6 @@ class CLIRunner:
                 )
                 sys.exit(1)
         return None
-    def _validate_compression(self) -> bool:
-        """Validates compression arguments."""
-        self.compression_algo = getattr(self.args, "algorithm", None)
-        if self.args.compress and not self.compression_algo:
-            log.error(
-                "Compression requested (-z), but no compression libraries "
-                "(gzip, bz2, lzma) are available or algorithm selected."
-            )
-            return False
-        if self.args.compress and not is_compression_available(self.compression_algo):
-            log.error(
-                "Compression algorithm '%s' is not available. "
-                "Ensure the library is installed.",
-                self.compression_algo,
-            )
-            return False
-        return True
     def _gather_input_files(self) -> bool:
         """Gathers and validates input files."""
         try:
@@ -172,24 +144,9 @@ class CLIRunner:
                 "Could not resolve input file path '%s': %s. Skipping.", file_path, e
             )
             return None, None
-        algo_settings = get_compression_settings(settings.algo)
         if settings.in_place:
-            if settings.compress:
-                if not (algo_settings and algo_settings.get("extension")):
-                    log.error(
-                        "Invalid compression settings for in-place algo '%s'",
-                        settings.algo,
-                    )
-                    return None, None
-                ext = str(algo_settings["extension"])
-                new_path = resolved_file_path.with_suffix(
-                    resolved_file_path.suffix + ext
-                )
-                base_output_path = new_path
-                effective_output_path_for_log = new_path
-            else:
-                base_output_path = resolved_file_path
-                effective_output_path_for_log = resolved_file_path
+            base_output_path = resolved_file_path
+            effective_output_path_for_log = resolved_file_path
         elif settings.output_dir:
             abs_output_dir = settings.output_dir
             abs_base_common_path = settings.base_common_path
@@ -213,16 +170,6 @@ class CLIRunner:
                 relative_path = Path(resolved_file_path.name)
             base_output_path = abs_output_dir / relative_path
             effective_output_path_for_log = base_output_path
-            if settings.compress:
-                if not (algo_settings and algo_settings.get("extension")):
-                    log.error(
-                        "Invalid compression settings for algo '%s'", settings.algo
-                    )
-                    return None, None
-                ext = str(algo_settings["extension"])
-                effective_output_path_for_log = base_output_path.with_suffix(
-                    base_output_path.suffix + ext
-                )
         log.debug(
             "Output destination for %s: base=%s, log_path=%s",
             resolved_file_path,
@@ -230,46 +177,11 @@ class CLIRunner:
             effective_output_path_for_log,
         )
         return base_output_path, effective_output_path_for_log
-    def _remove_original_if_compressed_inplace(
-        self, original_path: Path, compressed_path: Path
-    ) -> None:
-        """Removes the original file after successful in-place compression."""
-        try:
-            resolved_original = original_path.resolve()
-            resolved_compressed = compressed_path.resolve()
-            if resolved_original.exists() and resolved_original != resolved_compressed:
-                os.unlink(resolved_original)
-                log.debug(
-                    "Removed original file after in-place compression: %s",
-                    resolved_original,
-                )
-            elif resolved_original == resolved_compressed:
-                log.debug(
-                    "Original file path same as compressed, not removing: %s",
-                    resolved_original,
-                )
-            elif not resolved_original.exists():
-                log.debug(
-                    "Original file %s does not exist, skipping removal.",
-                    resolved_original,
-                )
-        except OSError as e:
-            log.warning(
-                "Could not remove original file %s after in-place compression: %s",
-                original_path,
-                e,
-            )
-        except Exception as e:
-            log.warning(
-                "Error during post-compression cleanup for %s: %s", original_path, e
-            )
     def _process_single_file(self, file_path: Path) -> bool:
         """Processes a single input file."""
         output_settings = OutputSettings(
             in_place=self.args.in_place,
             output_dir=self.output_dir,
-            compress=self.args.compress,
-            algo=self.compression_algo,
             base_common_path=self.base_common_path,
         )
         output_dest, effective_log_path = self._get_output_destination(
@@ -285,25 +197,12 @@ class CLIRunner:
             )
             return False
         try:
-            comp_settings = get_compression_settings(self.compression_algo)
-            writer = FileWriter(
-                compress=self.args.compress,
-                compression_algo=self.compression_algo,
-                compression_settings=comp_settings,
-            )
+            writer = FileWriter()
             processor = FileProcessor(input_path=file_path, writer=writer)
             processor.process(output_dest)
             if effective_log_path:
-                action = (
-                    "[Modified]"
-                    if self.args.in_place and not self.args.compress
-                    else "[Compressed]" if self.args.compress else "[Written]"
-                )
+                action = "[Modified]" if self.args.in_place else "[Written]"
                 log.info("%s %s", action, effective_log_path)
-            if self.args.in_place and self.args.compress and effective_log_path:
-                self._remove_original_if_compressed_inplace(
-                    file_path, effective_log_path
-                )
             return True
         except (ValueError, TypeError) as e:
             log.error("Configuration or processing error for %s: %s", file_path, e)
@@ -349,9 +248,6 @@ class CLI:
         self.parser = self._create_parser()
     def _create_parser(self) -> argparse.ArgumentParser:
         """Creates the argument parser."""
-        available_algos = [
-            algo for algo in COMPRESSION_ALGORITHMS if is_compression_available(algo)
-        ]
         epilog_text = """Examples (when run as script):
   tokenify script.py
   tokenify -i project_dir
@@ -360,10 +256,10 @@ Examples (when run as module):
   python -m src.main -i project_dir
   python -m src.main -o cleaned_dir script1.py script2.py
   python -m src.main "src/**/*.py"
-  python -m src.main -o cleaned_dir -z -a lzma project_dir"""
+"""
         parser = argparse.ArgumentParser(
             prog="tokenify",
-            description="Strip comments and optionally compress Python files.",
+            description="Strip comments from Python files.",
             formatter_class=argparse.RawDescriptionHelpFormatter,
             exit_on_error=False,
             epilog=epilog_text,
@@ -385,29 +281,6 @@ Examples (when run as module):
             type=Path,
             help="Directory to save processed files. Ignored if --in-place.",
         )
-        parser.add_argument(
-            "-z",
-            "--compress",
-            action="store_true",
-            help="Compress output files. Requires relevant library (e.g., gzip).",
-        )
-        if available_algos:
-            current_default = (
-                DEFAULT_COMPRESSION
-                if DEFAULT_COMPRESSION in available_algos
-                else (available_algos[0] if available_algos else None)
-            )
-            default_help = f" (default: {current_default})" if current_default else ""
-            parser.add_argument(
-                "-a",
-                "--algorithm",
-                choices=available_algos,
-                default=current_default,
-                help=f"Compression algorithm{default_help}. "
-                "Requires corresponding library.",
-            )
-        else:
-            parser.add_argument("-a", "--algorithm", help=argparse.SUPPRESS)
         parser.add_argument(
             "-q",
             "--quiet",
