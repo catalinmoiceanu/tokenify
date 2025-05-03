@@ -2,9 +2,6 @@
 # pylint: disable=unused-argument
 import unittest
 import sys
-import gzip
-import bz2
-import lzma
 import tempfile
 import shutil
 import os
@@ -12,7 +9,7 @@ import stat
 from pathlib import Path
 from io import BytesIO
 from unittest.mock import patch, MagicMock
-from src.file_writer import FileWriter
+from src.tokenify.file_writer import FileWriter
 def rmtree_onerror(func, path, exc_info):
     """Error handler for shutil.rmtree."""
     perm_errors = (PermissionError,)

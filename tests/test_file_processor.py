@@ -3,8 +3,8 @@ import tokenize
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 import pytest
-from src.file_processor import FileProcessor
-from src.file_writer import FileWriter
+from src.tokenify.file_processor import FileProcessor
+from src.tokenify.file_writer import FileWriter
 INPUT_CONTENT = b"""# Comment
 x = 1 # Inline
 """
@@ -35,7 +35,7 @@ def test_init_wrong_writer_type(sample_input_file: Path):
     """Test TypeError if writer is not a FileWriter instance."""
     with pytest.raises(TypeError, match="writer must be a FileWriter instance"):
         FileProcessor(input_path=sample_input_file, writer=object())  # type: ignore
-@patch("src.file_processor.CommentStripper.strip", return_value=STRIPPED_CONTENT)
+@patch("src.tokenify.file_processor.CommentStripper.strip", return_value=STRIPPED_CONTENT)
 def test_process_success(
     mock_strip: MagicMock,
     sample_input_file: Path,
@@ -50,7 +50,7 @@ def test_process_success(
     mock_read.assert_called_once()
     mock_strip.assert_called_once_with(INPUT_CONTENT)
     mock_writer.write.assert_called_once_with(STRIPPED_CONTENT, output_path)
-@patch("src.file_processor.CommentStripper.strip", return_value=STRIPPED_CONTENT)
+@patch("src.tokenify.file_processor.CommentStripper.strip", return_value=STRIPPED_CONTENT)
 def test_process_success_stdout(
     mock_strip: MagicMock, sample_input_file: Path, mock_writer: MagicMock
 ):
@@ -69,7 +69,7 @@ def test_process_read_file_not_found(mock_writer: MagicMock, tmp_path: Path):
         processor.process(None)
     mock_writer.write.assert_not_called()
 @patch(
-    "src.file_processor.CommentStripper.strip",
+    "src.tokenify.file_processor.CommentStripper.strip",
     side_effect=tokenize.TokenError("Invalid token"),
 )
 def test_process_strip_token_error(
@@ -83,7 +83,7 @@ def test_process_strip_token_error(
     mock_read.assert_called_once()
     mock_strip.assert_called_once_with(INPUT_CONTENT)
     mock_writer.write.assert_not_called()
-@patch("src.file_processor.CommentStripper.strip", return_value=STRIPPED_CONTENT)
+@patch("src.tokenify.file_processor.CommentStripper.strip", return_value=STRIPPED_CONTENT)
 def test_process_writer_io_error(
     mock_strip: MagicMock, sample_input_file: Path, mock_writer: MagicMock
 ):
@@ -96,7 +96,7 @@ def test_process_writer_io_error(
     mock_read.assert_called_once()
     mock_strip.assert_called_once_with(INPUT_CONTENT)
     mock_writer.write.assert_called_once_with(STRIPPED_CONTENT, None)
-@patch("src.file_processor.CommentStripper.strip", return_value=STRIPPED_CONTENT)
+@patch("src.tokenify.file_processor.CommentStripper.strip", return_value=STRIPPED_CONTENT)
 def test_process_unexpected_error_during_read(
     mock_strip: MagicMock, sample_input_file: Path, mock_writer: MagicMock
 ):

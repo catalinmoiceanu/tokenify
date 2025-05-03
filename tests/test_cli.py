@@ -7,19 +7,19 @@ import argparse
 from pathlib import Path
 from io import StringIO
 from unittest.mock import patch, MagicMock, call, ANY
-from src.cli import CLI, CLIRunner, OutputSettings
+from src.tokenify.cli import CLI, CLIRunner, OutputSettings
 MOCK_PATH_RESOLVER = MagicMock()
 MOCK_FILE_WRITER = MagicMock()
 MOCK_FILE_PROCESSOR = MagicMock()
 MOCK_GLOB = MagicMock()
 MOCK_OS_PATH_COMMONPATH = MagicMock()
 MOCK_OS_UNLINK = MagicMock()
-@patch("src.cli.PathResolver", MOCK_PATH_RESOLVER)
-@patch("src.cli.FileWriter", MOCK_FILE_WRITER)
-@patch("src.cli.FileProcessor", MOCK_FILE_PROCESSOR)
+@patch("src.tokenify.cli.PathResolver", MOCK_PATH_RESOLVER)
+@patch("src.tokenify.cli.FileWriter", MOCK_FILE_WRITER)
+@patch("src.tokenify.cli.FileProcessor", MOCK_FILE_PROCESSOR)
 @patch("glob.glob", MOCK_GLOB)
-@patch("src.cli.os.path.commonpath", MOCK_OS_PATH_COMMONPATH)
-@patch("src.cli.os.unlink", MOCK_OS_UNLINK)
+@patch("src.tokenify.cli.os.path.commonpath", MOCK_OS_PATH_COMMONPATH)
+@patch("src.tokenify.cli.os.unlink", MOCK_OS_UNLINK)
 class TestCLI(unittest.TestCase):
     """Tests for the CLI and CLIRunner classes."""
     # pylint: disable=too-many-instance-attributes

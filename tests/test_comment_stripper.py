@@ -3,7 +3,7 @@ import unittest
 import tokenize
 import re
 from typing import Optional, Pattern
-from src.comment_stripper import CommentStripper, DEFAULT_KEEP_PATTERN
+from src.tokenify.comment_stripper import CommentStripper, DEFAULT_KEEP_PATTERN
 # pylint: disable=too-many-public-methods
 class TestCommentStripper(unittest.TestCase):
     """Test suite for the CommentStripper class."""

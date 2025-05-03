@@ -4,7 +4,7 @@ import tempfile
 import shutil
 from pathlib import Path
 from unittest.mock import patch
-from src.path_resolver import PathResolver
+from src.tokenify.path_resolver import PathResolver
 class TestPathResolver(unittest.TestCase):
     def setUp(self):
         self.test_dir = Path(tempfile.mkdtemp())
